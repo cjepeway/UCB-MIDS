@@ -1,0 +1,14 @@
+#!/bin/sh
+
+LANG=C ; export LANG
+function t {
+	#tr -d '\015' |
+	#tr , '\012'
+	tr -d '\015' |
+	sed -e 's/","/\
+/g'
+}
+f="$1"
+n=$(head -1 "$f" | t | wc -l)
+(( n += 0 ))
+t < $f | awk -v n=$n '{ r = NR - 1 ; printf "%04d %2d %s\n", int(r/n),  r % n, $0}'
