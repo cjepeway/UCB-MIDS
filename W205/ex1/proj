@@ -1,10 +1,23 @@
-#!/usr/bin/awk -f
+#!/usr/bin/env gawk -f
 
 BEGIN {
-	fld = ARGV[1]
-	delete ARGV[1]
-	ARGC = 0
+	for (i = 1; i < ARGC; i++) {
+		#print "arg", i ":", ARGV[i]
+		f = ARGV[i]
+		if (f ~ /^[0-9]+/) {
+			fld[f]++
+		} else {
+			fnd[f]++
+		}
+		delete ARGV[i]
+	}
+
+	#for (i in fld) { print "got", i }
+	#for (i in fnd) { print "looking for", i }
+	FS = "\t *"
 }
 
-$1 == 0 && $3 == fld { fld = $2 }
-$1 != 0 && $2 == fld { print }
+#{ print "checking", $2, "[" $3 "]" }
+$1 == 0 && fnd[$3]	{ fld[$2+0]++ }
+$1 == 0 && skiphead	{ next }
+fld[$2+0]		{ print }
