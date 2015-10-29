@@ -2,7 +2,6 @@ from __future__ import print_function
 import sys
 import tweepy
 import datetime
-import urllib
 import signal
 import json
 import time
