@@ -6,6 +6,7 @@ import signal
 import json
 import time
 import os
+import re
 
 class Reentrant(object):
    _meth = None
@@ -32,13 +33,14 @@ class TweetStore(Reentrant):
    _path = None
    file = None
    _closing = False
+   _substRe = re.compile('(%\d*n)')
    B = 1
    KB = 1000 * B
    MB = 1000 * KB
    GB = 1000 * MB
    TB = 1000 * GB
 
-   def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%n", maxTweets = None, maxSize = None):
+   def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%05n", maxTweets = None, maxSize = None):
       self.serializer = serializer
       self.pathPattern = pathPattern
       if maxTweets != None:
@@ -47,11 +49,19 @@ class TweetStore(Reentrant):
          self.maxSize = maxSize
       super(TweetStore, self).__init__(meth = self.close)
 
+   def _substPctN(self, pat):
+      m = self._substRe.search(pat)
+      if m == None:
+         return pat
+      s = m.group().replace('n', 'd') % self.nFiles
+      return self._substRe.sub(s, pat)
+
    def _nextPath(self):
       path = self._path
       while path == None or os.path.exists(path):
          self.nFiles += 1
          pat = self.pathPattern.replace("%n", str(self.nFiles))
+         pat = self._substPctN(self.pathPattern)
          path = time.strftime(pat)
       self._path = path
 
@@ -159,16 +169,23 @@ def interrupt(signum, frame):
    exit(1)
 
 if __name__ == '__main__':
+
    execfile("./creds.py");
    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
    auth.set_access_token(access_token, access_token_secret)
 
    signal.signal(signal.SIGINT, interrupt)
+   signal.signal(signal.SIGTERM, interrupt)
+   signal.signal(signal.SIGQUIT, interrupt)
 
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
-   st = TweetStore(maxTweets = 100);
+   st = TweetStore(maxTweets = 100)
    s = TweetSerializer(store = st)
-   st.serializer = s;
+   st.serializer = s
+   #print("writing")
+   #s.write('{ "eek": "a-mouse" }')
+   #print("written")
+   #exit(0)
    w = TweetWriter(s)
    stream = tweepy.Stream(auth, w)
 
