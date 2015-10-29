@@ -155,4 +155,4 @@ if __name__ == '__main__':
 
    s.end()
 
-# vim: tabstop=3 expandtab softtabstop=3
+# vim: expandtab shiftwidth=3 softtabstop=3 tabstop=3
