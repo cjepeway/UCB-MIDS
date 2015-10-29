@@ -24,8 +24,8 @@ class Reentrant(object):
 
 class TweetStore(Reentrant):
    serializer = None
-   maxTweets = 0
-   maxSize = 0
+   maxTweets = -1
+   maxSize = -1
    nTweets = 0
    nFiles = 0
    pathPattern = None
@@ -38,14 +38,16 @@ class TweetStore(Reentrant):
    GB = 1000 * MB
    TB = 1000 * GB
 
-   def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%n", maxTweets = 1, maxSize = 0):
+   def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%n", maxTweets = None, maxSize = None):
       self.serializer = serializer
       self.pathPattern = pathPattern
-      self.maxTweets = maxTweets
-      self.maxSize = maxSize
+      if maxTweets != None:
+         self.maxTweets = maxTweets
+      if maxSize != None:
+         self.maxSize = maxSize
       super(TweetStore, self).__init__(meth = self.close)
 
-   def _nextPath():
+   def _nextPath(self):
       path = self._path
       while path == None or os.path.exists(path):
          self.nFiles += 1
@@ -66,7 +68,7 @@ class TweetStore(Reentrant):
       if self.file == None:
          return
       self._closing = True
-      os.stdout.write("\n")
+      sys.stdout.write("\n")
       self.serializer.closing()
       self.file.close()
       if self.nTweets == 0:
@@ -74,6 +76,7 @@ class TweetStore(Reentrant):
          os.remove(self._path)
          self.nFiles -= 1
       self.file = None
+      self.nTweets = 0
       self._closing = False
 
    def write(self, s):
@@ -84,10 +87,14 @@ class TweetStore(Reentrant):
    def writeTweet(self,  tweet):
       if self._closing:
          raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
-      nTweets += 1
-      os.sdout.write('.')
+      self.nTweets += 1
+      sys.stdout.write('.')
+      sys.stdout.flush()
       self.write(tweet)
-      if nTweets == maxTweets or self.file.tell() >= maxSize:
+      if self.maxTweets >= 0 and self.nTweets == self.maxTweets \
+         or self.maxSize >= 0 and self.file.tell() >= self.maxSize:
+         print("%d tweets, max %d; %d bytes, max %d" %
+               (self.nTweets, self.maxTweets, self.file.tell(), self.maxSize))
          self.close()
 
 
@@ -144,6 +151,7 @@ class TweetWriter(tweepy.StreamListener):
 
    def on_error(self, status):
       print("error from tweet stream: ", status, file=sys.stderr)
+      s.end()
       return False
 
 def interrupt(signum, frame):
