@@ -21,6 +21,7 @@ class TweetStore:
       self.fileCount += 1
       path = "."
       while os.path.exists(path):
+         self.fileCount += 1
          pat = self.pathPattern.replace("%n", str(self.fileCount))
          path = time.strftime(pat)
       d = os.path.dirname(path)
@@ -47,14 +48,12 @@ class TweetSerializer:
 
    def __init__(self, store = None, max = 1):
       if store == None:
-         print("instantiating a tweet store")
          store = TweetStore()
       self.store = store
       self.maxTweets = max
       self.ended = True
 
    def start(self):
-      print("starting")
       self.store.newFile()
       self.store.write("[\n")
       self.first = True
@@ -68,7 +67,6 @@ class TweetSerializer:
       self.ended = True
 
    def write(self, tweet):
-      print("ended: ", self.ended);
       if self.ended:
          self.start()
 
@@ -80,8 +78,11 @@ class TweetSerializer:
                                            , indent=4
                                            , separators=(',', ': ')).encode('utf8'))
       self.count += 1
-      if self.count > self.maxTweets:
+      if self.count == self.maxTweets:
          self.end()
+         self.count = 0
+         sys.stdout.write("\n")
+      sys.stdout.write(".")
 
 class TweetWriter(tweepy.StreamListener):
    s = None
@@ -92,9 +93,7 @@ class TweetWriter(tweepy.StreamListener):
          self.s = tweetSerializer
 
    def on_data(self, data):
-      print("got: ", data)
       s.write(data)
-      print("wrote it")
       return True
 
    def on_error(self, status):
@@ -113,7 +112,7 @@ if __name__ == '__main__':
    signal.signal(signal.SIGINT, interrupt)
 
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
-   s = TweetSerializer(max = 10)
+   s = TweetSerializer(max = 100)
    w = TweetWriter(s)
    stream = tweepy.Stream(auth, w)
 
