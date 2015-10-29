@@ -8,62 +8,100 @@ import time
 import os
 
 class TweetStore:
-   fileCount = 0
+   seralizer = None
+   maxTweets = 0
+   maxSize = 0
+   nTweets = 0
+   nFiles = 0
    pathPattern = None
+   _path = None
    file = None
+   closing = False
+   B = 1
+   KB = 1000 * B
+   MB = 1000 * KB
+   GB = 1000 * MB
+   TB = 1000 * GB
 
-   def __init__(self, pathPattern = "%Y-%m-%d/tweets-%n"):
+   def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%n", maxTweets = 1, maxSize = 0):
+      if serializer == None:
+         raise Exception('no serializer given')
+      self.serializer = serializer
       self.pathPattern = pathPattern
+      self.maxTweets = maxTweets
+	   self.maxSize = maxSize
 
-   def newFile(self):
-      self.close()
-      self.fileCount += 1
-      path = "."
-      while os.path.exists(path):
-         self.fileCount += 1
-         pat = self.pathPattern.replace("%n", str(self.fileCount))
+   def _nextPath():
+      path = self._path
+      while path == None or os.path.exists(path):
+         self.nFiles += 1
+         pat = self.pathPattern.replace("%n", str(self.nFiles))
          path = time.strftime(pat)
-      d = os.path.dirname(path)
+      self._path = path
+
+   def _newFile(self):
+      self.close()
+      self._nextPath()
+      d = os.path.dirname(self._path)
       if not os.path.exists(d):
          os.makedirs(d)
-      print("new file: ", path)
-      self.file = open(path, 'w')
+      print("new file: ", self._path)
+      self.file = open(self._path, 'w')
 
    def close(self):
-      if self.file:
-         self.file.close()
-         self.file = None
+      if self.closing or self.file == None:
+         return
+      self.closing = True
+      self.serializer.closing()
+      self.file.close()
+      if self.nTweets == 0:
+         # no tweets => don't need this file
+         os.remove(self._path)
+         self.nFiles -= 1
+      self.file = None
+      self.closing = False
 
-   def write(self,  s):
+   def write(self, s):
+      if file == None:
+         self._newFile()
       self.file.write(s)
+
+   def writeTweet(self,  tweet):
+      if self.closing:
+         raise Exception('cannot write a tweet to a file that is closing')
+      nTweets += 1
+      self.write(tweet)
+	   if nTweets == maxTweets or self.file.tell() >= maxSize:
+         self.close()
 
 
 class TweetSerializer:
    first = None
    ended = None
-   count = 0
-   maxTweets = 1
+   ending = None
    store = None
 
-   def __init__(self, store = None, max = 1):
+   def __init__(self, store = None):
       if store == None:
-         store = TweetStore()
+         store = TweetStore(serializer = self)
       self.store = store
-      self.maxTweets = max
       self.ended = True
 
    def start(self):
-      self.store.newFile()
       self.store.write("[\n")
       self.first = True
       self.ended = False
 
    def end(self):
-      if self.ended != None and not self.ended:
+      if self.ending:
+         return
+      self.ending = True
+      if not self.ended:
          self.store.write("\n]\n")
          self.store.close()
          self.first = False
       self.ended = True
+      self.ending = False
 
    def write(self, tweet):
       if self.ended:
@@ -72,16 +110,13 @@ class TweetSerializer:
       if not self.first:
          self.store.write(",\n")
       self.first = False
-      self.store.write(json.dumps(json.loads(tweet)
-                                           , sort_keys=True
-                                           , indent=4
-                                           , separators=(',', ': ')).encode('utf8'))
-      self.count += 1
-      if self.count == self.maxTweets:
-         self.end()
-         self.count = 0
-         sys.stdout.write("\n")
-      sys.stdout.write(".")
+      self.store.writeTweet(json.dumps(json.loads(tweet)
+                                       , sort_keys=True
+                                       , indent=4
+                                       , separators=(',', ': ')).encode('utf8'))
+
+   def closing(self):
+      self.end()
 
 class TweetWriter(tweepy.StreamListener):
    s = None
@@ -119,3 +154,5 @@ if __name__ == '__main__':
    stream.filter(track=sys.argv)
 
    s.end()
+
+# vim: tabstop=3 expandtab softtabstop=3
