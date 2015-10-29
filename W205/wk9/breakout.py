@@ -23,7 +23,7 @@ class Reentrant(object):
       setattr(self, self._meth.func_name, self._wrap)
 
 class TweetStore(Reentrant):
-   seralizer = None
+   serializer = None
    maxTweets = 0
    maxSize = 0
    nTweets = 0
@@ -39,13 +39,11 @@ class TweetStore(Reentrant):
    TB = 1000 * GB
 
    def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%n", maxTweets = 1, maxSize = 0):
-      if serializer == None:
-         raise Exception('no serializer given')
       self.serializer = serializer
       self.pathPattern = pathPattern
       self.maxTweets = maxTweets
       self.maxSize = maxSize
-      super(TweetStore, self).__init__(meth = _close)
+      super(TweetStore, self).__init__(meth = self.close)
 
    def _nextPath():
       path = self._path
@@ -64,10 +62,11 @@ class TweetStore(Reentrant):
       print("new file: ", self._path)
       self.file = open(self._path, 'w')
 
-   def _close(self):
+   def close(self):
       if self.file == None:
          return
       self._closing = True
+      os.stdout.write("\n")
       self.serializer.closing()
       self.file.close()
       if self.nTweets == 0:
@@ -77,11 +76,8 @@ class TweetStore(Reentrant):
       self.file = None
       self._closing = False
 
-   def close(self):
-      self.end()
-
    def write(self, s):
-      if file == None:
+      if self.file == None:
          self._newFile()
       self.file.write(s)
 
@@ -89,6 +85,7 @@ class TweetStore(Reentrant):
       if self._closing:
          raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
       nTweets += 1
+      os.sdout.write('.')
       self.write(tweet)
       if nTweets == maxTweets or self.file.tell() >= maxSize:
          self.close()
@@ -163,6 +160,7 @@ if __name__ == '__main__':
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
    st = TweetStore(maxTweets = 100);
    s = TweetSerializer(store = st)
+   st.serializer = s;
    w = TweetWriter(s)
    stream = tweepy.Stream(auth, w)
 
