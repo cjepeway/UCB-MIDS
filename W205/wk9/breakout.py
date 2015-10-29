@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import tweepy
 import datetime
@@ -5,7 +6,6 @@ import urllib
 import signal
 import json
 import time
-from __future__ import print_function
 
 class TweetStore:
    fileCount = 0
@@ -15,9 +15,9 @@ class TweetStore:
    def __init__(self, pathPattern = "%d/tweets-%n"):
       self.pathPattern = pathPattern
 
-   def newFile:
+   def newFile():
       self.close()
-      fileCount++
+      fileCount += 1
       pat = pathPattern.replace("%n", fileCount)
       path = time.strftime(pat)
       d = os.path.dirname(path)
@@ -25,7 +25,7 @@ class TweetStore:
 	 os.makedirs(d)
       file = open(path, 'w')
 
-   def close:
+   def close():
       if file:
 	 file.close()
 	 file = None
@@ -39,9 +39,9 @@ class TweetSerializer:
    ended = True
    count = 0
    maxTweets = 1
-   store = TweetStore()
+   store = None
 
-   def __init__(self, store, max = 1):
+   def __init__(self, store = TweetStore(), max = 1):
       self.store = store
       self.maxTweets = max
 
@@ -66,7 +66,7 @@ class TweetSerializer:
          self.store.write(",\n")
       self.first = False
       self.store.write(json.dumps(tweet._json).encode('utf8'))
-      count++
+      count += 1
       if count > maxTweets:
 	 self.end()
 
@@ -83,10 +83,9 @@ class TweetWriter(tweepy.StreamListener):
       s.write(data)
       return True
 
-    def on_error(self, status):
-       print("error from tweet stream: ", status, file=sys.stderr)
-       return False
-
+   def on_error(self, status):
+      print("error from tweet stream: ", status, file=sys.stderr)
+      return False
 
 def interrupt(signum, frame):
    s.end()
