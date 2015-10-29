@@ -56,13 +56,17 @@ class TweetStore(Reentrant):
       s = m.group().replace('n', 'd') % self.nFiles
       return self._substRe.sub(s, pat)
 
+   def _makePath(self, n):
+      pat = self._substPctN(self.pathPattern)
+      path = time.strftime(pat)
+      return path
+
+
    def _nextPath(self):
       path = self._path
       while path == None or os.path.exists(path):
          self.nFiles += 1
-         pat = self.pathPattern.replace("%n", str(self.nFiles))
-         pat = self._substPctN(self.pathPattern)
-         path = time.strftime(pat)
+         path = self._makePath(self.nFiles)
       self._path = path
 
    def _newFile(self):
@@ -102,7 +106,8 @@ class TweetStore(Reentrant):
       sys.stdout.flush()
       self.write(tweet)
       if self.maxTweets >= 0 and self.nTweets == self.maxTweets \
-         or self.maxSize >= 0 and self.file.tell() >= self.maxSize:
+         or self.maxSize >= 0 and self.file.tell() >= self.maxSize \
+         or self._path != self._makePath(self.nFiles):
          print("%d tweets, max %d; %d bytes, max %d" %
                (self.nTweets, self.maxTweets, self.file.tell(), self.maxSize))
          self.close()
