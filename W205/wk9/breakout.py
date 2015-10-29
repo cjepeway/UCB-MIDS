@@ -19,8 +19,10 @@ class TweetStore:
    def newFile(self):
       self.close()
       self.fileCount += 1
-      pat = self.pathPattern.replace("%n", str(self.fileCount))
-      path = time.strftime(pat)
+      path = "."
+      while os.path.exists(path):
+         pat = self.pathPattern.replace("%n", str(self.fileCount))
+         path = time.strftime(pat)
       d = os.path.dirname(path)
       if not os.path.exists(d):
          os.makedirs(d)
@@ -73,14 +75,14 @@ class TweetSerializer:
       if not self.first:
          self.store.write(",\n")
       self.first = False
-      self.store.write(json.dumps(tweet).encode('utf8'))
+      self.store.write(json.dumps(json.loads(tweet)
+                                           , sort_keys=True
+                                           , indent=4
+                                           , separators=(',', ': ')).encode('utf8'))
       self.count += 1
       if self.count > self.maxTweets:
          self.end()
 
-#Import the necessary methods from tweepy library
-
-#This is a basic listener that just prints received tweets to stdout.
 class TweetWriter(tweepy.StreamListener):
    s = None
 
@@ -104,12 +106,6 @@ def interrupt(signum, frame):
    exit(1)
 
 if __name__ == '__main__':
-
-   x = TweetStore()
-   y = TweetSerializer()
-
-   #y.write("EEK");
-
    execfile("./creds.py");
    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
    auth.set_access_token(access_token, access_token_secret)
