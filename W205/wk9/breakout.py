@@ -6,69 +6,77 @@ import urllib
 import signal
 import json
 import time
+import os
 
 class TweetStore:
    fileCount = 0
    pathPattern = None
    file = None
 
-   def __init__(self, pathPattern = "%d/tweets-%n"):
+   def __init__(self, pathPattern = "%Y-%m-%d/tweets-%n"):
       self.pathPattern = pathPattern
 
-   def newFile():
+   def newFile(self):
       self.close()
-      fileCount += 1
-      pat = pathPattern.replace("%n", fileCount)
+      self.fileCount += 1
+      pat = self.pathPattern.replace("%n", str(self.fileCount))
       path = time.strftime(pat)
       d = os.path.dirname(path)
       if not os.path.exists(d):
-	 os.makedirs(d)
-      file = open(path, 'w')
+         os.makedirs(d)
+      print("new file: ", path)
+      self.file = open(path, 'w')
 
-   def close():
-      if file:
-	 file.close()
-	 file = None
+   def close(self):
+      if self.file:
+         self.file.close()
+         self.file = None
 
-   def write(s):
-      file.write(s)
+   def write(self,  s):
+      self.file.write(s)
 
 
 class TweetSerializer:
-   first = True
-   ended = True
+   first = None
+   ended = None
    count = 0
    maxTweets = 1
    store = None
 
-   def __init__(self, store = TweetStore(), max = 1):
+   def __init__(self, store = None, max = 1):
+      if store == None:
+         print("instantiating a tweet store")
+         store = TweetStore()
       self.store = store
       self.maxTweets = max
+      self.ended = True
 
    def start(self):
-      store.newFile()
-      store.write("[\n")
+      print("starting")
+      self.store.newFile()
+      self.store.write("[\n")
       self.first = True
       self.ended = False
 
    def end(self):
-      if not self.ended:
+      if self.ended != None and not self.ended:
          self.store.write("\n]\n")
-	 self.store.close()
-	 self.first = False
-	 self.ended = True
+         self.store.close()
+         self.first = False
+      self.ended = True
 
-   def store(self, tweet):
+   def write(self, tweet):
+      print("ended: ", self.ended);
       if self.ended:
-	 self.start()
+         self.start()
 
       if not self.first:
          self.store.write(",\n")
       self.first = False
-      self.store.write(json.dumps(tweet._json).encode('utf8'))
-      count += 1
-      if count > maxTweets:
-	 self.end()
+      self.store.write(json.dumps(tweet).encode('utf8'))
+      self.count += 1
+      if self.count > self.maxTweets:
+         self.end()
 
 #Import the necessary methods from tweepy library
 
@@ -76,11 +84,15 @@ class TweetSerializer:
 class TweetWriter(tweepy.StreamListener):
    s = None
 
-   def __init__(self, tweetSerializer = TweetSerializer()):
-      self.s = tweetSerializer
+   def __init__(self, tweetSerializer = None):
+      if tweetSerializer == None:
+         tweetSerializer = TweetSerializer()
+         self.s = tweetSerializer
 
    def on_data(self, data):
+      print("got: ", data)
       s.write(data)
+      print("wrote it")
       return True
 
    def on_error(self, status):
@@ -93,6 +105,11 @@ def interrupt(signum, frame):
 
 if __name__ == '__main__':
 
+   x = TweetStore()
+   y = TweetSerializer()
+
+   #y.write("EEK");
+
    execfile("./creds.py");
    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
    auth.set_access_token(access_token, access_token_secret)
@@ -100,7 +117,7 @@ if __name__ == '__main__':
    signal.signal(signal.SIGINT, interrupt)
 
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
-   s = TweetSerializer()
+   s = TweetSerializer(max = 10)
    w = TweetWriter(s)
    stream = tweepy.Stream(auth, w)
 
