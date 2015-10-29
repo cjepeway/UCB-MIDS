@@ -7,7 +7,22 @@ import json
 import time
 import os
 
-class TweetStore:
+class Reentrant(object):
+   _meth = None
+
+   def __init__(self, meth):
+      self._meth = meth
+      setattr(self, self._meth.func_name, self._wrap)
+
+   def _noop(self, *args, **kw_args):
+      pass
+
+   def _wrap(self, *args, **kw_args):
+      setattr(self, self._meth.func_name, self._noop)
+      self._meth(*args, **kw_args)
+      setattr(self, self._meth.func_name, self._wrap)
+
+class TweetStore(Reentrant):
    seralizer = None
    maxTweets = 0
    maxSize = 0
@@ -16,7 +31,7 @@ class TweetStore:
    pathPattern = None
    _path = None
    file = None
-   closing = False
+   _closing = False
    B = 1
    KB = 1000 * B
    MB = 1000 * KB
@@ -29,7 +44,8 @@ class TweetStore:
       self.serializer = serializer
       self.pathPattern = pathPattern
       self.maxTweets = maxTweets
-	   self.maxSize = maxSize
+      self.maxSize = maxSize
+      super(TweetStore, self).__init__(meth = _close)
 
    def _nextPath():
       path = self._path
@@ -48,10 +64,10 @@ class TweetStore:
       print("new file: ", self._path)
       self.file = open(self._path, 'w')
 
-   def close(self):
-      if self.closing or self.file == None:
+   def _close(self):
+      if self.file == None:
          return
-      self.closing = True
+      self._closing = True
       self.serializer.closing()
       self.file.close()
       if self.nTweets == 0:
@@ -59,7 +75,10 @@ class TweetStore:
          os.remove(self._path)
          self.nFiles -= 1
       self.file = None
-      self.closing = False
+      self._closing = False
+
+   def close(self):
+      self.end()
 
    def write(self, s):
       if file == None:
@@ -67,18 +86,17 @@ class TweetStore:
       self.file.write(s)
 
    def writeTweet(self,  tweet):
-      if self.closing:
-         raise Exception('cannot write a tweet to a file that is closing')
+      if self._closing:
+         raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
       nTweets += 1
       self.write(tweet)
-	   if nTweets == maxTweets or self.file.tell() >= maxSize:
+      if nTweets == maxTweets or self.file.tell() >= maxSize:
          self.close()
 
 
-class TweetSerializer:
+class TweetSerializer(Reentrant):
    first = None
    ended = None
-   ending = None
    store = None
 
    def __init__(self, store = None):
@@ -86,6 +104,7 @@ class TweetSerializer:
          store = TweetStore(serializer = self)
       self.store = store
       self.ended = True
+      super(self.__class__, self).__init__(meth = self.end)
 
    def start(self):
       self.store.write("[\n")
@@ -93,15 +112,11 @@ class TweetSerializer:
       self.ended = False
 
    def end(self):
-      if self.ending:
-         return
-      self.ending = True
       if not self.ended:
          self.store.write("\n]\n")
          self.store.close()
          self.first = False
       self.ended = True
-      self.ending = False
 
    def write(self, tweet):
       if self.ended:
@@ -146,7 +161,8 @@ if __name__ == '__main__':
    signal.signal(signal.SIGINT, interrupt)
 
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
-   s = TweetSerializer(max = 100)
+   st = TweetStore(maxTweets = 100);
+   s = TweetSerializer(store = st)
    w = TweetWriter(s)
    stream = tweepy.Stream(auth, w)
 
