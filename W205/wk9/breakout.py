@@ -203,10 +203,12 @@ class TweetWriter(tweepy.StreamListener):
    def on_disconnect(self, notice):
       print("disconnected", file=sys.stderr)
       s.end()
+      self.stop()
 
    def on_error(self, status):
       print("error from tweet stream: ", status, file=sys.stderr)
       s.end()
+      self.stop()
       return False
 
    def stop(self):
