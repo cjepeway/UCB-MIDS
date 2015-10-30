@@ -224,16 +224,21 @@ def interrupt(signum, frame):
 
 if __name__ == '__main__':
 
+   # Bring in twitter creds; this file is *not*
+   # in source code control; you've got to provide
+   # it yourself
    execfile("./creds.py");
+
    auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
    auth.set_access_token(access_token, access_token_secret)
 
+   # Handle signals
    signal.signal(signal.SIGINT, interrupt)
    signal.signal(signal.SIGTERM, interrupt)
    signal.signal(signal.SIGQUIT, interrupt)
 
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
-   st = TweetStore(maxTweets = 100)
+   st = TweetStore(maxTweets = 100, pathPattern='tweets/%Y-%m-%d/%05n')
    s = TweetSerializer(store = st)
    st.serializer = s
    w = TweetWriter(s)
@@ -241,6 +246,7 @@ if __name__ == '__main__':
 
    # filter stream according to argv, in a separate thread
    stream.filter(track=sys.argv, async=True)
+
    # Pass the time, waiting for an interrupt
    # to cause sleep() to return a False value
    while time.sleep(10):
