@@ -159,8 +159,6 @@ class TweetSerializer(Reentrant):
    store = None
 
    def __init__(self, store = None):
-      if store == None:
-         store = TweetStore(serializer = self)
       self.store = store
       self.ended = True
       super(self.__class__, self).__init__(meth = self.end)
@@ -175,12 +173,11 @@ class TweetSerializer(Reentrant):
          self.store.write("\n]\n")
          self.store.close()
          self.first = False
-      self.ended = True
+         self.ended = True
 
    def write(self, tweet):
       if self.ended:
          self.start()
-
       if not self.first:
          self.store.write(",\n")
       self.first = False
@@ -197,15 +194,14 @@ class TweetWriter(tweepy.StreamListener):
    stopped = False
 
    def __init__(self, tweetSerializer = None):
-      if tweetSerializer == None:
-         tweetSerializer = TweetSerializer()
-         self.s = tweetSerializer
+      self.s = tweetSerializer
 
    def on_data(self, data):
       s.write(data)
       return not self.stopped
 
    def on_disconnect(self, notice):
+      print("disconnected", file=sys.stderr)
       s.end()
 
    def on_error(self, status):
@@ -217,10 +213,7 @@ class TweetWriter(tweepy.StreamListener):
       self.stopped = True
 
 def interrupt(signum, frame):
-   """
-   Handle a signal by doing nothing.
-   """
-   pass
+   w.stop()
 
 if __name__ == '__main__':
 
@@ -235,7 +228,6 @@ if __name__ == '__main__':
    # Handle signals
    signal.signal(signal.SIGINT, interrupt)
    signal.signal(signal.SIGTERM, interrupt)
-   signal.signal(signal.SIGQUIT, interrupt)
 
    api = tweepy.API(auth_handler=auth,wait_on_rate_limit=True,wait_on_rate_limit_notify=True)
    st = TweetStore(maxTweets = 100, pathPattern='tweets/%Y-%m-%d/%05n')
@@ -248,9 +240,8 @@ if __name__ == '__main__':
    stream.filter(track=sys.argv, async=True)
 
    # Pass the time, waiting for an interrupt
-   # to cause sleep() to return a False value
-   while time.sleep(10):
-      pass
+   while not w.stopped:
+      time.sleep(10)
    stream.disconnect()
    s.end()
 
