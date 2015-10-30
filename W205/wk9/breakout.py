@@ -9,6 +9,13 @@ import os
 import re
 
 class Reentrant(object):
+   """
+   Makes a method into one that's reentrant.
+
+   It uses inheritance and a constructor to do so,
+   so it's kinda ugly.
+   """
+
    _meth = None
 
    def __init__(self, meth):
@@ -24,16 +31,20 @@ class Reentrant(object):
       setattr(self, self._meth.func_name, self._wrap)
 
 class TweetStore(Reentrant):
+   """
+   Store tweets according to a policy.
+   """
    serializer = None
    maxTweets = -1
    maxSize = -1
    nTweets = 0
    nFiles = 0
    pathPattern = None
-   _path = None
    file = None
+   _path = None
    _closing = False
    _substRe = re.compile('(%\d*n)')
+
    B = 1
    KB = 1000 * B
    MB = 1000 * KB
@@ -41,6 +52,20 @@ class TweetStore(Reentrant):
    TB = 1000 * GB
 
    def __init__(self, serializer = None, pathPattern = "%Y-%m-%d/tweets-%05n", maxTweets = None, maxSize = None):
+      """
+      Set policy of how tweets are stored.
+
+      maxTweets   - max # of tweets per file
+      maxSize     - tweets will be written to a new file
+                    once current one exceeds this limit in bytes
+      pathPattern - a pattern for how files containing tweets
+                    will be named.  can contain %-directives.
+                    %n indicate a file number, all others are
+                    as in strftime, which see. a pattern like
+                    "%Y-%m-%d/%04n" will put tweets in a file
+                    named 2015-01-01/0001.  As time passes,
+                    those files will move to 2015-01-02.
+      """
       self.serializer = serializer
       self.pathPattern = pathPattern
       if maxTweets != None:
@@ -79,6 +104,11 @@ class TweetStore(Reentrant):
       self.file = open(self._path, 'w')
 
    def close(self):
+      """
+      Close the store.
+
+      A subsequent write to the store will re-open it.
+      """
       if self.file == None:
          return
       self._closing = True
@@ -94,11 +124,21 @@ class TweetStore(Reentrant):
       self._closing = False
 
    def write(self, s):
+      """
+      Write bytes to a tweet store.
+
+      Typically, these bytes have to do with
+      serialization.  Write tweets using the
+      writeTweet() method.
+      """
       if self.file == None:
          self._newFile()
       self.file.write(s)
 
    def writeTweet(self,  tweet):
+      """
+      Write a tweet to the store.
+      """
       if self._closing:
          raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
       self.nTweets += 1
@@ -154,6 +194,7 @@ class TweetSerializer(Reentrant):
 
 class TweetWriter(tweepy.StreamListener):
    s = None
+   stopped = False
 
    def __init__(self, tweetSerializer = None):
       if tweetSerializer == None:
@@ -162,16 +203,24 @@ class TweetWriter(tweepy.StreamListener):
 
    def on_data(self, data):
       s.write(data)
-      return True
+      return not self.stopped
+
+   def on_disconnect(self, notice):
+      s.end()
 
    def on_error(self, status):
       print("error from tweet stream: ", status, file=sys.stderr)
       s.end()
       return False
 
+   def stop(self):
+      self.stopped = True
+
 def interrupt(signum, frame):
-   s.end()
-   exit(1)
+   """
+   Handle a signal by doing nothing.
+   """
+   pass
 
 if __name__ == '__main__':
 
@@ -187,16 +236,16 @@ if __name__ == '__main__':
    st = TweetStore(maxTweets = 100)
    s = TweetSerializer(store = st)
    st.serializer = s
-   #print("writing")
-   #s.write('{ "eek": "a-mouse" }')
-   #print("written")
-   #exit(0)
    w = TweetWriter(s)
    stream = tweepy.Stream(auth, w)
 
-   # filter stream according to argv
-   stream.filter(track=sys.argv)
-
+   # filter stream according to argv, in a separate thread
+   stream.filter(track=sys.argv, async=True)
+   # Pass the time, waiting for an interrupt
+   # to cause sleep() to return a False value
+   while time.sleep(10):
+      pass
+   stream.disconnect()
    s.end()
 
 # vim: expandtab shiftwidth=3 softtabstop=3 tabstop=3
