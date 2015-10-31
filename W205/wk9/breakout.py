@@ -8,29 +8,26 @@ import time
 import os
 import re
 
-class Reentrant(object):
+class ReentrantMethod(object):
    """
-   Makes a method into one that's reentrant.
-
-   It uses inheritance and a constructor to do so,
-   so it's kinda ugly.
+   Make a given object's method be re-entrant.
    """
 
-   _meth = None
-
-   def __init__(self, meth):
-      self._meth = meth
-      setattr(self, self._meth.func_name, self._wrap)
-
-   def _noop(self, *args, **kw_args):
+   orig_meth = None
+   obj = None
+   def __init__(self, obj, meth):
+      self.orig_meth = meth
+      self.obj = obj
+      setattr(self.obj, self.orig_meth.func_name, self._wrap)
+   def _noop(self, *args, **kwargs):
       pass
+   def _wrap(self, *args, **kwargs):
+      setattr(self.obj, self.orig_meth.func_name, self._noop)
+      self.orig_meth(*args, **kwargs)
+      setattr(self.obj, self.orig_meth.func_name, self._wrap)
 
-   def _wrap(self, *args, **kw_args):
-      setattr(self, self._meth.func_name, self._noop)
-      self._meth(*args, **kw_args)
-      setattr(self, self._meth.func_name, self._wrap)
 
-class TweetStore(Reentrant):
+class TweetStore(object):
    """
    Store tweets according to a policy.
    """
@@ -72,7 +69,7 @@ class TweetStore(Reentrant):
          self.maxTweets = maxTweets
       if maxSize != None:
          self.maxSize = maxSize
-      super(TweetStore, self).__init__(meth = self.close)
+      ReentrantMethod(self, self.close)
 
    def _substPctN(self, pat):
       m = self._substRe.search(pat)
@@ -153,7 +150,7 @@ class TweetStore(Reentrant):
          self.close()
 
 
-class TweetSerializer(Reentrant):
+class TweetSerializer(object):
    first = None
    ended = None
    store = None
@@ -161,7 +158,7 @@ class TweetSerializer(Reentrant):
    def __init__(self, store = None):
       self.store = store
       self.ended = True
-      super(self.__class__, self).__init__(meth = self.end)
+      ReentrantMethod(self, self.end)
 
    def start(self):
       self.store.write("[\n")
@@ -193,8 +190,8 @@ class TweetWriter(tweepy.StreamListener):
    s = None
    stopped = False
 
-   def __init__(self, tweetSerializer = None):
-      self.s = tweetSerializer
+   def __init__(self, serializer = None):
+      self.s = serializer
 
    def on_data(self, data):
       s.write(data)
