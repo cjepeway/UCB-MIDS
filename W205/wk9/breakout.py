@@ -138,7 +138,7 @@ class TweetStore(object):
       Write a tweet to the store.
       """
       if self._closing:
-         print("writing to closing tweet store:", traceback.format_stack().join("\n"))
+         print("writing to closing tweet store:", ''.join(traceback.format_stack()))
       self.nTweets += 1
       sys.stdout.write('.')
       sys.stdout.flush()
