@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
    # Pass the time, waiting for an interrupt
    while not w.stopped:
-      time.sleep(10)
+      signal.pause()
    stream.disconnect()
    s.end()
 
