@@ -39,7 +39,6 @@ class TweetStore(object):
    pathPattern = None
    file = None
    _path = None
-   _closing = False
    _substRe = re.compile('(%\d*n)')
 
    B = 1
@@ -108,7 +107,6 @@ class TweetStore(object):
       """
       if self.file == None:
          return
-      self._closing = True
       sys.stdout.write("\n")
       self.serializer.closing()
       self.file.close()
@@ -118,7 +116,6 @@ class TweetStore(object):
          self.nFiles -= 1
       self.file = None
       self.nTweets = 0
-      self._closing = False
 
    def write(self, s):
       """
@@ -136,8 +133,6 @@ class TweetStore(object):
       """
       Write a tweet to the store.
       """
-      #if self._closing:
-         #raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
       self.nTweets += 1
       sys.stdout.write('.')
       sys.stdout.flush()
@@ -187,24 +182,22 @@ class TweetSerializer(object):
       self.end()
 
 class TweetWriter(tweepy.StreamListener):
-   s = None
+   write = None
    stopped = False
 
    def __init__(self, serializer = None):
-      self.s = serializer
+      self.write = serializer
 
    def on_data(self, data):
-      s.write(data)
+      self.write(data)
       return not self.stopped
 
    def on_disconnect(self, notice):
       print("disconnected", file=sys.stderr)
-      s.end()
       self.stop()
 
    def on_error(self, status):
       print("error from tweet stream: ", status, file=sys.stderr)
-      s.end()
       self.stop()
       return False
 
@@ -232,7 +225,7 @@ if __name__ == '__main__':
    st = TweetStore(maxTweets = 100, pathPattern='tweets/%Y-%m-%d/%05n')
    s = TweetSerializer(store = st)
    st.serializer = s
-   w = TweetWriter(s)
+   w = TweetWriter(s.write)
    stream = tweepy.Stream(auth, w)
 
    # filter stream according to argv, in a separate thread
