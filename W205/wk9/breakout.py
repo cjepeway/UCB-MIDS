@@ -243,6 +243,7 @@ if __name__ == '__main__':
    while not w.stopped:
       signal.pause()
    stream.disconnect()
+   stream._thread.join()
    s.end()
 
 # vim: expandtab shiftwidth=3 softtabstop=3 tabstop=3
