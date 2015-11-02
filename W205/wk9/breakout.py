@@ -136,8 +136,8 @@ class TweetStore(object):
       """
       Write a tweet to the store.
       """
-      if self._closing:
-         raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
+      #if self._closing:
+         #raise Exception('tweet file "%s" is closing, cannot write to it' % self._path)
       self.nTweets += 1
       sys.stdout.write('.')
       sys.stdout.flush()
