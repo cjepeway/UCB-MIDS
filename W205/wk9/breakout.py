@@ -7,6 +7,7 @@ import json
 import time
 import os
 import re
+import traceback
 
 class ReentrantMethod(object):
    """
@@ -38,6 +39,7 @@ class TweetStore(object):
    nFiles = 0
    pathPattern = None
    file = None
+   _closing = False
    _path = None
    _substRe = re.compile('(%\d*n)')
 
@@ -107,6 +109,7 @@ class TweetStore(object):
       """
       if self.file == None:
          return
+      self._closing = True
       sys.stdout.write("\n")
       self.serializer.closing()
       self.file.close()
@@ -116,6 +119,7 @@ class TweetStore(object):
          self.nFiles -= 1
       self.file = None
       self.nTweets = 0
+      self._closing = False
 
    def write(self, s):
       """
@@ -133,6 +137,8 @@ class TweetStore(object):
       """
       Write a tweet to the store.
       """
+      if self._closing:
+         print("writing to closing tweet store:", traceback.format_stack().join("\n"))
       self.nTweets += 1
       sys.stdout.write('.')
       sys.stdout.flush()
@@ -143,6 +149,7 @@ class TweetStore(object):
          print("%d tweets, max %d; %d bytes, max %d" %
                (self.nTweets, self.maxTweets, self.file.tell(), self.maxSize))
          self.close()
+      self._closing = False
 
 
 class TweetSerializer(object):
@@ -194,11 +201,12 @@ class TweetWriter(tweepy.StreamListener):
 
    def on_disconnect(self, notice):
       print("disconnected", file=sys.stderr)
-      self.stop()
+      os.kill(os.getpid(), signal.SIGTERM)
+      return False
 
    def on_error(self, status):
       print("error from tweet stream: ", status, file=sys.stderr)
-      self.stop()
+      os.kill(os.getpid(), signal.SIGTERM)
       return False
 
    def stop(self):
