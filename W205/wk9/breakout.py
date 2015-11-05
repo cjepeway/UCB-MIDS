@@ -181,7 +181,6 @@ class TweetSerializer(object):
          self.store.write(",\n")
       self.first = False
       self.store.writeTweet(json.dumps(json.loads(tweet)
-                                       , sort_keys=True
                                        , indent=4
                                        , separators=(',', ': ')).encode('utf8'))
 
