@@ -196,16 +196,19 @@ class TweetWriter(tweepy.StreamListener):
       self.write = serializer
 
    def on_data(self, data):
-      self.write(data)
+      if not stopped:
+         self.write(data)
       return not self.stopped
 
    def on_disconnect(self, notice):
       print("disconnected", file=sys.stderr)
+      self.stop()
       os.kill(os.getpid(), signal.SIGTERM)
       return False
 
    def on_error(self, status):
       print("error from tweet stream: ", status, file=sys.stderr)
+      self.stop()
       os.kill(os.getpid(), signal.SIGTERM)
       return False
 
@@ -213,6 +216,7 @@ class TweetWriter(tweepy.StreamListener):
       self.stopped = True
 
 def interrupt(signum, frame):
+   stream.disconnect()
    w.stop()
 
 if __name__ == '__main__':
