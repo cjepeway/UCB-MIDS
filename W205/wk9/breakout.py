@@ -196,7 +196,7 @@ class TweetWriter(tweepy.StreamListener):
       self.write = serializer
 
    def on_data(self, data):
-      if not stopped:
+      if not self.stopped:
          self.write(data)
       return not self.stopped
 
